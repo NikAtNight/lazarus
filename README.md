@@ -92,7 +92,7 @@ After cloning, copse compares the worktree's lockfile with the main checkout's. 
 ## Limits
 
 - The main checkout needs an installed `node_modules`. copse clones what is there.
-- Clones need a copy-on-write filesystem: APFS on macOS, or Btrfs or XFS with reflinks on Linux. Elsewhere `cp` falls back to a full copy. The Linux path is untested.
+- Clones need a copy-on-write filesystem: APFS on macOS, or Btrfs or XFS with reflinks on Linux. Elsewhere `cp` falls back to a full copy. On Ubuntu with ext4, every command works but each worktree takes the full size of `node_modules`. Block sharing on Btrfs and XFS is untested.
 - `du` counts a clone at full size. Compare `df` before and after to see what a worktree costs.
 - Native build output inside `node_modules`, such as an Expo package's Xcode `.DerivedData`, keeps the main checkout's paths. Native builds from a worktree are untested.
 - Stopping only the process that holds a port can leave a watcher such as `tsx watch` running. Use `copse rm`, or stop the `copse run` or `copse dev` process. It passes the signal to the command.
