@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="440" viewBox="0 0 1280 440" role="img" aria-labelledby="title description">
+  <title id="title">lazarus. Worktrees that wake up with node_modules.</title>
+  <desc id="description">Two ghosts lean out from behind a terminal window running lazarus add, on a cream background.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f3ecdf"/>
+      <stop offset="1" stop-color="#eadfcd"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="440" rx="24" fill="url(#bg)"/>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+    <text x="72" y="96" font-size="17" font-weight="700" letter-spacing="2.5" fill="#d9734c">GIT WORKTREES / CLI</text>
+    <text x="66" y="200" font-size="112" font-weight="800" letter-spacing="-5" fill="#342d38">lazarus</text>
+    <text x="72" y="262" font-size="34" font-weight="500" letter-spacing="-0.5" fill="#342d38">Worktrees that wake up</text>
+    <text x="72" y="304" font-size="34" font-weight="500" letter-spacing="-0.5" fill="#342d38">with node_modules.</text>
+    <rect x="72" y="336" width="44" height="3" rx="1.5" fill="#d9734c"/>
+    <text x="72" y="376" font-size="19" fill="#6f6470">Copy-on-write clones · Own ports · No reinstall</text>
+  </g>
+
+  <!-- terminal -->
+  <g transform="translate(800 112)">
+    <rect width="420" height="236" rx="18" fill="#342d38"/>
+    <circle cx="28" cy="28" r="7" fill="#e8835a"/>
+    <circle cx="50" cy="28" r="7" fill="#6f6470"/>
+    <circle cx="72" cy="28" r="7" fill="#6f6470"/>
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="19" fill="#b9aeb9">
+      <text x="120" y="88" fill="#fff5e7"><tspan fill="#e8835a">$</tspan> lazarus add feature-x</text>
+      <text x="120" y="128">clone</text><text x="200" y="128">node_modules</text><text x="352" y="128" fill="#fff5e7">6ms</text>
+      <text x="120" y="160">clone</text><text x="200" y="160">.env</text>
+      <text x="120" y="192">port</text><text x="200" y="192" fill="#fff5e7">3010</text><text x="256" y="192">(slot 1)</text>
+    </g>
+  </g>
+
+  <!-- ghosts, gliding out in front of the terminal -->
+  <g transform="translate(742 236) rotate(12) scale(0.6)">
+    <path d="M88 0 C88 60 98 110 104 150 C108 178 84 194 62 176 C48 164 34 162 22 176 C8 192 -16 200 -36 186 C-60 202 -100 218 -142 210 C-108 194 -92 160 -90 118 C-89 80 -88 40 -88 0 C-88 -49 -49 -88 0 -88 C49 -88 88 -49 88 0 Z" fill="#e8835a" stroke="#efe6d6" stroke-width="16" paint-order="stroke"/>
+    <rect x="-11" y="-24" width="30" height="46" rx="15" fill="#342d38"/><rect x="37" y="-24" width="30" height="46" rx="15" fill="#342d38"/>
+  </g>
+  <g transform="translate(806 262) rotate(12) scale(0.64)">
+    <path d="M88 0 C88 60 98 110 104 150 C108 178 84 194 62 176 C48 164 34 162 22 176 C8 192 -16 200 -36 186 C-60 202 -100 218 -142 210 C-108 194 -92 160 -90 118 C-89 80 -88 40 -88 0 C-88 -49 -49 -88 0 -88 C49 -88 88 -49 88 0 Z" fill="#342d38" stroke="#efe6d6" stroke-width="16" paint-order="stroke"/>
+    <rect x="-11" y="-24" width="30" height="46" rx="15" fill="#fff5e7"/><rect x="37" y="-24" width="30" height="46" rx="15" fill="#fff5e7"/>
+  </g>
+</svg>
