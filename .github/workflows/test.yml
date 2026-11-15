@@ -59,7 +59,7 @@ jobs:
           git add . && git -c user.name=ci -c user.email=ci@example.com commit -qm init
           mkdir node_modules && head -c 100M /dev/urandom > node_modules/big.bin
           sync; before=$(df --output=used -k /mnt/cow | tail -1)
-          node "$GITHUB_WORKSPACE/bin/copse.js" add feat --no-install | tee /tmp/add.log
+          node "$GITHUB_WORKSPACE/bin/lazarus.js" add feat --no-install | tee /tmp/add.log
           grep -q '^clone   node_modules' /tmp/add.log
           sync; after=$(df --output=used -k /mnt/cow | tail -1)
           echo "disk used: $(( (after - before) / 1024 )) MB for a 100 MB node_modules"

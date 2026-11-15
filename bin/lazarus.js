@@ -1,35 +1,35 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
-import { add, dev, hydrate, list, port, remove, run } from '../lib/copse.js';
+import { add, dev, hydrate, list, port, remove, run } from '../lib/lazarus.js';
 
 const USAGE = `Usage:
-  copse add <branch> [path] [--base <ref>] [--no-install]
+  lazarus add <branch> [path] [--base <ref>] [--no-install]
       Create a worktree for <branch> and clone node_modules and .env files
       into it from the main checkout. Default path: ../<repo>-<branch>.
 
-  copse list
+  lazarus list
       Show every worktree with its branch, port, and whether its server is up.
 
-  copse rm <branch|path> [--force]
-      Stop the worktree's copse servers, remove it, and delete its branch if
+  lazarus rm <branch|path> [--force]
+      Stop the worktree's lazarus servers, remove it, and delete its branch if
       merged. --force also discards uncommitted changes.
 
-  copse dev
-      Run the "dev" command from copse.json on this worktree's port.
+  lazarus dev
+      Run the "dev" command from lazarus.json on this worktree's port.
 
-  copse run -- <command...>
+  lazarus run -- <command...>
       Run <command> with PORT set to this worktree's port. @port and
       @port+1 through @port+9 in the command are replaced too.
-      Example: copse run -- pnpm dev --port @port --strictPort
+      Example: lazarus run -- pnpm dev --port @port --strictPort
 
-  copse port
+  lazarus port
       Print this worktree's first port. It owns that port and the next 9.
 
-  copse hydrate [--no-install]
+  lazarus hydrate [--no-install]
       Do the clone step for the existing worktree you are in.
 
 Ports start at 3000 for the main checkout, 3010 for the first worktree, and so
-on. Settings live in copse.json in the main checkout:
+on. Settings live in lazarus.json in the main checkout:
   { "port": 5173, "dev": "pnpm dev --port @port", "clone": ["data"] }`;
 
 function printList(trees) {

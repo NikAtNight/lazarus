@@ -1,10 +1,10 @@
 {
-  "name": "copse",
+  "name": "lazarus",
   "version": "0.1.0",
   "description": "Git worktrees whose node_modules share disk blocks through copy-on-write clones",
   "type": "module",
   "bin": {
-    "copse": "bin/copse.js"
+    "lazarus": "bin/lazarus.js"
   },
   "files": [
     "bin",

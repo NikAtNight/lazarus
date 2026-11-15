@@ -31,9 +31,9 @@ import {
   port,
   readConfig,
   slot,
-} from '../lib/copse.js';
+} from '../lib/lazarus.js';
 
-const BIN = fileURLToPath(new URL('../bin/copse.js', import.meta.url));
+const BIN = fileURLToPath(new URL('../bin/lazarus.js', import.meta.url));
 
 function git(cwd, ...args) {
   const identity = ['-c', 'user.name=test', '-c', 'user.email=test@example.com', '-c', 'commit.gpgsign=false'];
@@ -48,7 +48,7 @@ function put(root, path, content = '') {
 // A repo at <tmp>/app with two commits. The first has no packages/a. The working
 // copy then gets the ignored files a real project has: dependencies, env, build output.
 function makeRepo(t) {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'copse-')));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'lazarus-')));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const repo = join(root, 'app');
   mkdirSync(repo);
@@ -82,7 +82,7 @@ async function useFreePort(repo, extra = {}) {
   await new Promise((done) => probe.once('listening', done));
   const free = probe.address().port;
   await new Promise((done) => probe.close(done));
-  put(repo, 'copse.json', JSON.stringify({ port: free - 10, ...extra }));
+  put(repo, 'lazarus.json', JSON.stringify({ port: free - 10, ...extra }));
   return free;
 }
 
@@ -93,7 +93,7 @@ async function waitFor(condition, what) {
   }
 }
 
-const copse = (cwd, ...args) => promisify(execFile)('node', [BIN, ...args], { cwd });
+const lazarus = (cwd, ...args) => promisify(execFile)('node', [BIN, ...args], { cwd });
 
 test('add creates a worktree with its own runnable copy of dependencies and env files', (t) => {
   const { root, repo } = makeRepo(t);
@@ -122,7 +122,7 @@ test('add creates a worktree with its own runnable copy of dependencies and env 
   assert.equal(readFileSync(join(repo, 'node_modules/pkg/cli.js'), 'utf8'), 'original');
 });
 
-test('the copse command names the folder safely for a branch with a slash', (t) => {
+test('the lazarus command names the folder safely for a branch with a slash', (t) => {
   const { root, repo } = makeRepo(t);
 
   const output = execFileSync('node', [BIN, 'add', 'feat/login', '--no-install'], {
@@ -205,7 +205,7 @@ test('ports come in blocks of ten from a base the repo can set', (t) => {
   const second = add(repo, 'two', { install: false });
 
   assert.deepEqual([port(repo), port(first), port(second)], [3000, 3010, 3020]);
-  put(repo, 'copse.json', '{ "port": 5173 }');
+  put(repo, 'lazarus.json', '{ "port": 5173 }');
   assert.deepEqual([port(repo), port(first), port(second)], [5173, 5183, 5193]);
   assert.deepEqual(fillPorts(['--port', '@port', 'API=@port+1', '@portal'], 5183), [
     '--port',
@@ -215,12 +215,12 @@ test('ports come in blocks of ten from a base the repo can set', (t) => {
   ]);
 });
 
-test('copse run passes the port to the command and refuses a port already in use', async (t) => {
+test('lazarus run passes the port to the command and refuses a port already in use', async (t) => {
   const { repo } = makeRepo(t);
   const dest = add(repo, 'server', { install: false });
   const expected = await useFreePort(repo);
   assert.equal(port(dest), expected);
-  const script = 'console.log(process.env.PORT, process.env.COPSE_SLOT, process.argv[1])';
+  const script = 'console.log(process.env.PORT, process.env.LAZARUS_SLOT, process.argv[1])';
 
   const output = execFileSync('node', [BIN, 'run', '--', 'node', '-e', script, '@port+2'], {
     cwd: dest,
@@ -259,9 +259,9 @@ test('the placeholder survives a zsh or bash command line that redirects output'
   }
 });
 
-test('copse.json adds paths to clone and rejects settings it does not know', (t) => {
+test('lazarus.json adds paths to clone and rejects settings it does not know', (t) => {
   const { repo } = makeRepo(t);
-  put(repo, 'copse.json', '{ "clone": ["dist", "missing"] }');
+  put(repo, 'lazarus.json', '{ "clone": ["dist", "missing"] }');
 
   const dest = add(repo, 'with-data', { install: false });
   assert.equal(readFileSync(join(dest, 'dist/bundle.js'), 'utf8'), 'built');
@@ -269,21 +269,21 @@ test('copse.json adds paths to clone and rejects settings it does not know', (t)
   assert.equal(readFileSync(join(repo, 'dist/bundle.js'), 'utf8'), 'built');
 
   for (const bad of ['{ "prot": 1 }', '{ "port": "3000" }', '{ "clone": ["../x"] }', '{ nope']) {
-    put(repo, 'copse.json', bad);
-    assert.throws(() => readConfig(dest), /copse\.json/, bad);
+    put(repo, 'lazarus.json', bad);
+    assert.throws(() => readConfig(dest), /lazarus\.json/, bad);
   }
 });
 
-test('copse dev runs the configured command through a shell on the worktree port', async (t) => {
+test('lazarus dev runs the configured command through a shell on the worktree port', async (t) => {
   const { root, repo } = makeRepo(t);
   const dest = add(repo, 'dev', { install: false });
-  await assert.rejects(copse(dest, 'dev'), /No dev command/);
+  await assert.rejects(lazarus(dest, 'dev'), /No dev command/);
 
   const script = join(root, 'show.js');
   writeFileSync(script, 'console.log(process.env.PORT, process.env.API, process.argv[2])');
   const expected = await useFreePort(repo, { dev: `API=@port+1 node ${script} @port && echo done` });
 
-  const { stdout } = await copse(dest, 'dev');
+  const { stdout } = await lazarus(dest, 'dev');
   assert.equal(stdout.trim(), `${expected} ${expected + 1} ${expected}\ndone`);
 });
 
@@ -302,7 +302,7 @@ test('list shows each worktree with its port and whether a server is up', async 
     { path: first, branch: 'one', port: expected, up: true, current: true },
     { path: plain, branch: 'plain', port: null, up: false, current: false },
   ]);
-  const { stdout } = await copse(repo, 'list');
+  const { stdout } = await lazarus(repo, 'list');
   assert.match(stdout, new RegExp(`\\* +main +${expected - 10} +- +${repo}\\n +one +${expected} +up `));
 });
 
@@ -317,7 +317,7 @@ test('rm stops the worktree server, removes the worktree, and deletes a merged b
   const isUp = async () => (await list(repo)).find((tree) => tree.branch === 'done')?.up;
   await waitFor(isUp, 'the server to start');
 
-  const { stdout } = await copse(repo, 'rm', 'done');
+  const { stdout } = await lazarus(repo, 'rm', 'done');
 
   await exited;
   assert.match(stdout, /stop +process \d+\nremoved .*app-done\ndeleted branch done/);
@@ -336,12 +336,12 @@ test('rm keeps unmerged work: a dirty worktree needs --force and an unmerged bra
   git(dest, 'commit', '-q', '-m', 'work');
   put(dest, 'package.json', '{"name":"edited"}');
 
-  await assert.rejects(copse(repo, 'rm', 'wip'), /modified or untracked files/);
+  await assert.rejects(lazarus(repo, 'rm', 'wip'), /modified or untracked files/);
   assert.ok(existsSync(dest));
-  await assert.rejects(copse(repo, 'rm', 'main'), /main checkout/);
-  await assert.rejects(copse(repo, 'rm', 'nope'), /No worktree for "nope"/);
+  await assert.rejects(lazarus(repo, 'rm', 'main'), /main checkout/);
+  await assert.rejects(lazarus(repo, 'rm', 'nope'), /No worktree for "nope"/);
 
-  const { stdout } = await copse(dest, 'rm', 'wip', '--force');
+  const { stdout } = await lazarus(dest, 'rm', 'wip', '--force');
   assert.match(stdout, /kept +branch wip \(not merged\)/);
   assert.equal(existsSync(dest), false);
   assert.equal(git(repo, 'branch', '--list', 'wip').trim(), 'wip');
@@ -369,7 +369,7 @@ test('without copy-on-write, pnpm and bun install and other repos get a full cop
 
 test('hardlink mode shares node_modules files but never .env files or rewritten shims', (t) => {
   const { repo } = makeRepo(t);
-  put(repo, 'copse.json', '{ "hardlink": true }');
+  put(repo, 'lazarus.json', '{ "hardlink": true }');
   const shim = 'packages/a/node_modules/.bin/tool';
   const mainShim = readFileSync(join(repo, shim), 'utf8');
 
