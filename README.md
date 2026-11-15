@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.svg" width="128" height="128" alt="copse logo"></p>
+
 # copse
 
 Git worktrees that start in under a second, without a second copy of `node_modules`, and that can each run their own dev server.
