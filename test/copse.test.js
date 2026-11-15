@@ -21,7 +21,17 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { add, fillPorts, hydrate, installCommand, list, port, readConfig, slot } from '../lib/copse.js';
+import {
+  add,
+  dependencyMode,
+  fillPorts,
+  hydrate,
+  installCommand,
+  list,
+  port,
+  readConfig,
+  slot,
+} from '../lib/copse.js';
 
 const BIN = fileURLToPath(new URL('../bin/copse.js', import.meta.url));
 
@@ -120,7 +130,7 @@ test('the copse command names the folder safely for a branch with a slash', (t) 
     encoding: 'utf8',
   });
 
-  assert.match(output, /clone {3}node_modules/);
+  assert.match(output, /(clone|copy) +node_modules/);
   assert.ok(output.includes(`ready   ${join(root, 'app-feat-login')}`));
   assert.ok(existsSync(join(root, 'app-feat-login/node_modules/pkg/cli.js')));
 });
@@ -335,4 +345,41 @@ test('rm keeps unmerged work: a dirty worktree needs --force and an unmerged bra
   assert.match(stdout, /kept +branch wip \(not merged\)/);
   assert.equal(existsSync(dest), false);
   assert.equal(git(repo, 'branch', '--list', 'wip').trim(), 'wip');
+});
+
+test('without copy-on-write, pnpm and bun install and other repos get a full copy', (t) => {
+  const mode = (manager, extra = {}) =>
+    dependencyMode({ cloneable: false, manager, install: true, hardlink: false, ...extra });
+
+  assert.equal(mode('pnpm', { cloneable: true }), 'clone');
+  assert.equal(mode('pnpm'), 'install');
+  assert.equal(mode('bun'), 'install');
+  assert.equal(mode('pnpm', { install: false }), 'copy', '--no-install still has to produce node_modules');
+  assert.equal(mode('npm'), 'copy');
+  assert.equal(mode('npm', { hardlink: true }), 'hardlink');
+  assert.equal(mode('pnpm', { hardlink: true }), 'install');
+
+  const { repo } = makeRepo(t);
+  const log = [];
+  const dest = add(repo, 'plain-copy', { install: false, canClone: () => false, log: (line) => log.push(line) });
+  assert.ok(log.some((line) => /^copy +node_modules/.test(line)), log.join('\n'));
+  assert.equal(readFileSync(join(dest, 'node_modules/pkg/cli.js'), 'utf8'), 'original');
+  assert.notEqual(statSync(join(dest, 'node_modules/pkg/cli.js')).ino, statSync(join(repo, 'node_modules/pkg/cli.js')).ino);
+});
+
+test('hardlink mode shares node_modules files but never .env files or rewritten shims', (t) => {
+  const { repo } = makeRepo(t);
+  put(repo, 'copse.json', '{ "hardlink": true }');
+  const shim = 'packages/a/node_modules/.bin/tool';
+  const mainShim = readFileSync(join(repo, shim), 'utf8');
+
+  const dest = add(repo, 'linked', { install: false, canClone: () => false });
+
+  const inode = (root, path) => statSync(join(root, path)).ino;
+  assert.equal(inode(dest, 'node_modules/pkg/cli.js'), inode(repo, 'node_modules/pkg/cli.js'));
+  assert.ok(lstatSync(join(dest, 'node_modules/.bin/pkg')).isSymbolicLink());
+  assert.notEqual(inode(dest, '.env'), inode(repo, '.env'));
+  assert.equal(readFileSync(join(dest, shim), 'utf8'), `export NODE_PATH="${dest}/node_modules/.pnpm"\n`);
+  assert.equal(readFileSync(join(repo, shim), 'utf8'), mainShim, "main's shim is untouched");
+  assert.equal(existsSync(join(repo, 'node_modules/.vite')), true, "main's cache is untouched");
 });

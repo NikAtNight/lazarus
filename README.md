@@ -43,13 +43,29 @@ Settings live in `copse.json` in the main checkout. Every worktree reads that on
 {
   "port": 5173,
   "dev": "pnpm dev --port @port",
-  "clone": ["data"]
+  "clone": ["data"],
+  "hardlink": false
 }
 ```
 
 - `port` is the first port of the main checkout's block. The default is 3000.
 - `dev` is the shell command `copse dev` runs, with the same `PORT` variable and `@port` placeholders as `copse run`. An agent can then start any repo's server with `copse dev`.
 - `clone` lists extra git-ignored paths to clone into each new worktree, such as a local database folder. Don't list a database that a running server is writing to.
+- `hardlink` matters only on a disk that can't clone. See the next section.
+
+## Disks that can't clone
+
+Cloning needs a copy-on-write filesystem: APFS on macOS, or Btrfs or XFS with reflinks on Linux. ext4, the usual Linux default, can't do it. Neither can a worktree on a different volume from the main checkout. copse tests this with one small file, then picks a way to fill `node_modules`:
+
+| Repo | What copse does | Disk cost |
+| --- | --- | --- |
+| pnpm or bun | Skips the copy and runs the install. Both link files from their own store. | Small |
+| npm or yarn | Copies `node_modules` in full. | Full size |
+| npm or yarn with `"hardlink": true` | Hard-links every file to the main checkout's copy. | Small |
+
+Hard links share one file between checkouts, so a tool that edits a file in place inside `node_modules`, such as `patch-package`, changes it in all of them. An install is safe, because it replaces files. That risk is why `hardlink` is off by default. `.env` files and `clone` paths are always real copies.
+
+With `--no-install`, pnpm and bun repos get a full copy too.
 
 ## Ports
 
@@ -92,7 +108,6 @@ After cloning, copse compares the worktree's lockfile with the main checkout's. 
 ## Limits
 
 - The main checkout needs an installed `node_modules`. copse clones what is there.
-- Clones need a copy-on-write filesystem: APFS on macOS, or Btrfs or XFS with reflinks on Linux. Elsewhere `cp` falls back to a full copy. On Ubuntu with ext4, every command works but each worktree takes the full size of `node_modules`. Block sharing on Btrfs and XFS is untested.
 - `du` counts a clone at full size. Compare `df` before and after to see what a worktree costs.
 - Native build output inside `node_modules`, such as an Expo package's Xcode `.DerivedData`, keeps the main checkout's paths. Native builds from a worktree are untested.
 - Stopping only the process that holds a port can leave a watcher such as `tsx watch` running. Use `copse rm`, or stop the `copse run` or `copse dev` process. It passes the signal to the command.
