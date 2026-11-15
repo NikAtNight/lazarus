@@ -13,20 +13,47 @@ Measured on an APFS Mac, against a plain `git worktree add` plus a warm-cache in
 
 ```sh
 copse add <branch> [path] [--base <ref>] [--no-install]
-copse hydrate [--no-install]
-copse port
+copse list
+copse rm <branch|path> [--force]
+copse dev
 copse run -- <command...>
+copse port
+copse hydrate [--no-install]
 ```
 
 `add` checks out `<branch>` if it exists locally or on a remote. Otherwise it creates the branch from `--base`, or from `HEAD`. The default path is `../<repo>-<branch>`, with slashes in the branch name turned into dashes.
 
 `hydrate` does the clone step for a worktree that something else created, such as `git worktree add` or an editor. Run it inside that worktree.
 
-Remove a worktree with plain `git worktree remove <path>`. That also frees its port block.
+`list` shows every worktree with its branch, its port, and whether a server answers there:
+
+```
+   BRANCH         PORT  SERVER  PATH
+   main           3000  -       /code/app
+*  feat-login     3010  up      /code/app-feat-login
+```
+
+`rm` stops the servers that `copse dev` or `copse run` started in the worktree, removes it, and deletes its branch if git considers it merged. An unmerged branch stays. A worktree with uncommitted changes is refused unless you pass `--force`. Plain `git worktree remove <path>` works too, and either way the port block is freed.
+
+## Settings
+
+Settings live in `copse.json` in the main checkout. Every worktree reads that one file, so edits apply right away, without a commit. All keys are optional:
+
+```json
+{
+  "port": 5173,
+  "dev": "pnpm dev --port @port",
+  "clone": ["data"]
+}
+```
+
+- `port` is the first port of the main checkout's block. The default is 3000.
+- `dev` is the shell command `copse dev` runs, with the same `PORT` variable and `@port` placeholders as `copse run`. An agent can then start any repo's server with `copse dev`.
+- `clone` lists extra git-ignored paths to clone into each new worktree, such as a local database folder. Don't list a database that a running server is writing to.
 
 ## Ports
 
-Every checkout owns a block of 10 ports. The main checkout starts at 3000, the first worktree at 3010, the next at 3020. A worktree keeps its block until it's removed, and the next new worktree takes the lowest free one. Change the start for a repo with `git config copse.port 5173`.
+Every checkout owns a block of 10 ports. The main checkout starts at 3000, the first worktree at 3010, the next at 3020. A worktree keeps its block until it's removed, and the next new worktree takes the lowest free one. Change the start for a repo with `port` in `copse.json`.
 
 `copse port` prints the first port of the block. `copse run` starts a command with that port in `PORT`, and replaces `@port` and `@port+1` through `@port+9` in the command:
 
@@ -68,4 +95,4 @@ After cloning, copse compares the worktree's lockfile with the main checkout's. 
 - Clones need a copy-on-write filesystem: APFS on macOS, or Btrfs or XFS with reflinks on Linux. Elsewhere `cp` falls back to a full copy. The Linux path is untested.
 - `du` counts a clone at full size. Compare `df` before and after to see what a worktree costs.
 - Native build output inside `node_modules`, such as an Expo package's Xcode `.DerivedData`, keeps the main checkout's paths. Native builds from a worktree are untested.
-- Stopping only the process that holds a port can leave a watcher such as `tsx watch` running. Stop the `copse run` process instead. It passes the signal to the whole command.
+- Stopping only the process that holds a port can leave a watcher such as `tsx watch` running. Use `copse rm`, or stop the `copse run` or `copse dev` process. It passes the signal to the command.

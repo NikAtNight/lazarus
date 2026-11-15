@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFile, execFileSync } from 'node:child_process';
+import { execFile, execFileSync, spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { promisify } from 'node:util';
 import {
@@ -21,7 +21,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { add, fillPorts, hydrate, installCommand, port, slot } from '../lib/copse.js';
+import { add, fillPorts, hydrate, installCommand, list, port, readConfig, slot } from '../lib/copse.js';
 
 const BIN = fileURLToPath(new URL('../bin/copse.js', import.meta.url));
 
@@ -65,6 +65,25 @@ function makeRepo(t) {
   put(repo, 'dist/bundle.js', 'built');
   return { root, repo, first };
 }
+
+// Ask the OS for a free port, then set the repo's base so slot 1 lands on it.
+async function useFreePort(repo, extra = {}) {
+  const probe = createServer().listen(0, '127.0.0.1');
+  await new Promise((done) => probe.once('listening', done));
+  const free = probe.address().port;
+  await new Promise((done) => probe.close(done));
+  put(repo, 'copse.json', JSON.stringify({ port: free - 10, ...extra }));
+  return free;
+}
+
+async function waitFor(condition, what) {
+  for (const deadline = Date.now() + 10_000; !(await condition()); ) {
+    if (Date.now() > deadline) throw new Error(`Timed out waiting for ${what}`);
+    await new Promise((done) => setTimeout(done, 50));
+  }
+}
+
+const copse = (cwd, ...args) => promisify(execFile)('node', [BIN, ...args], { cwd });
 
 test('add creates a worktree with its own runnable copy of dependencies and env files', (t) => {
   const { root, repo } = makeRepo(t);
@@ -176,7 +195,7 @@ test('ports come in blocks of ten from a base the repo can set', (t) => {
   const second = add(repo, 'two', { install: false });
 
   assert.deepEqual([port(repo), port(first), port(second)], [3000, 3010, 3020]);
-  git(repo, 'config', 'copse.port', '5173');
+  put(repo, 'copse.json', '{ "port": 5173 }');
   assert.deepEqual([port(repo), port(first), port(second)], [5173, 5183, 5193]);
   assert.deepEqual(fillPorts(['--port', '@port', 'API=@port+1', '@portal'], 5183), [
     '--port',
@@ -189,14 +208,8 @@ test('ports come in blocks of ten from a base the repo can set', (t) => {
 test('copse run passes the port to the command and refuses a port already in use', async (t) => {
   const { repo } = makeRepo(t);
   const dest = add(repo, 'server', { install: false });
-  // Ask the OS for a free port, then set the base so this worktree (slot 1) lands on it.
-  const probe = createServer().listen(0, '127.0.0.1');
-  await new Promise((done) => probe.once('listening', done));
-  const free = probe.address().port;
-  await new Promise((done) => probe.close(done));
-  git(repo, 'config', 'copse.port', String(free - 10));
-  const expected = port(dest);
-  assert.equal(expected, free);
+  const expected = await useFreePort(repo);
+  assert.equal(port(dest), expected);
   const script = 'console.log(process.env.PORT, process.env.COPSE_SLOT, process.argv[1])';
 
   const output = execFileSync('node', [BIN, 'run', '--', 'node', '-e', script, '@port+2'], {
@@ -234,4 +247,92 @@ test('the placeholder survives a zsh or bash command line that redirects output'
     });
     assert.deepEqual(JSON.parse(readFileSync(out, 'utf8')), ['--port', String(port(dest))], shell);
   }
+});
+
+test('copse.json adds paths to clone and rejects settings it does not know', (t) => {
+  const { repo } = makeRepo(t);
+  put(repo, 'copse.json', '{ "clone": ["dist", "missing"] }');
+
+  const dest = add(repo, 'with-data', { install: false });
+  assert.equal(readFileSync(join(dest, 'dist/bundle.js'), 'utf8'), 'built');
+  appendFileSync(join(dest, 'dist/bundle.js'), ' changed');
+  assert.equal(readFileSync(join(repo, 'dist/bundle.js'), 'utf8'), 'built');
+
+  for (const bad of ['{ "prot": 1 }', '{ "port": "3000" }', '{ "clone": ["../x"] }', '{ nope']) {
+    put(repo, 'copse.json', bad);
+    assert.throws(() => readConfig(dest), /copse\.json/, bad);
+  }
+});
+
+test('copse dev runs the configured command through a shell on the worktree port', async (t) => {
+  const { root, repo } = makeRepo(t);
+  const dest = add(repo, 'dev', { install: false });
+  await assert.rejects(copse(dest, 'dev'), /No dev command/);
+
+  const script = join(root, 'show.js');
+  writeFileSync(script, 'console.log(process.env.PORT, process.env.API, process.argv[2])');
+  const expected = await useFreePort(repo, { dev: `API=@port+1 node ${script} @port && echo done` });
+
+  const { stdout } = await copse(dest, 'dev');
+  assert.equal(stdout.trim(), `${expected} ${expected + 1} ${expected}\ndone`);
+});
+
+test('list shows each worktree with its port and whether a server is up', async (t) => {
+  const { root, repo } = makeRepo(t);
+  const first = add(repo, 'one', { install: false });
+  const plain = join(root, 'plain');
+  git(repo, 'worktree', 'add', '-q', '-b', 'plain', plain);
+  const expected = await useFreePort(repo);
+  const server = createServer().listen(expected, '127.0.0.1');
+  t.after(() => server.close());
+  await new Promise((done) => server.once('listening', done));
+
+  assert.deepEqual(await list(first), [
+    { path: repo, branch: 'main', port: expected - 10, up: false, current: false },
+    { path: first, branch: 'one', port: expected, up: true, current: true },
+    { path: plain, branch: 'plain', port: null, up: false, current: false },
+  ]);
+  const { stdout } = await copse(repo, 'list');
+  assert.match(stdout, new RegExp(`\\* +main +${expected - 10} +- +${repo}\\n +one +${expected} +up `));
+});
+
+test('rm stops the worktree server, removes the worktree, and deletes a merged branch', async (t) => {
+  const { repo } = makeRepo(t);
+  const dest = add(repo, 'done', { install: false });
+  const expected = await useFreePort(repo);
+  const serve = 'require("node:http").createServer((_, res) => res.end("hi")).listen(process.env.PORT, "127.0.0.1")';
+  const server = spawn('node', [BIN, 'run', '--', 'node', '-e', serve], { cwd: dest, stdio: 'ignore' });
+  t.after(() => server.kill());
+  const exited = new Promise((done) => server.once('exit', done));
+  const isUp = async () => (await list(repo)).find((tree) => tree.branch === 'done')?.up;
+  await waitFor(isUp, 'the server to start');
+
+  const { stdout } = await copse(repo, 'rm', 'done');
+
+  await exited;
+  assert.match(stdout, /stop +process \d+\nremoved .*app-done\ndeleted branch done/);
+  assert.equal(existsSync(dest), false);
+  assert.equal(git(repo, 'branch', '--list', 'done'), '');
+  const probe = createServer().listen(expected, '127.0.0.1');
+  await new Promise((done, fail) => probe.once('listening', done).once('error', fail));
+  probe.close();
+});
+
+test('rm keeps unmerged work: a dirty worktree needs --force and an unmerged branch stays', async (t) => {
+  const { repo } = makeRepo(t);
+  const dest = add(repo, 'wip', { install: false });
+  put(dest, 'feature.txt', 'new work');
+  git(dest, 'add', '.');
+  git(dest, 'commit', '-q', '-m', 'work');
+  put(dest, 'package.json', '{"name":"edited"}');
+
+  await assert.rejects(copse(repo, 'rm', 'wip'), /modified or untracked files/);
+  assert.ok(existsSync(dest));
+  await assert.rejects(copse(repo, 'rm', 'main'), /main checkout/);
+  await assert.rejects(copse(repo, 'rm', 'nope'), /No worktree for "nope"/);
+
+  const { stdout } = await copse(dest, 'rm', 'wip', '--force');
+  assert.match(stdout, /kept +branch wip \(not merged\)/);
+  assert.equal(existsSync(dest), false);
+  assert.equal(git(repo, 'branch', '--list', 'wip').trim(), 'wip');
 });
