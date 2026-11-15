@@ -2,6 +2,14 @@
   "name": "lazarus",
   "version": "0.1.0",
   "description": "Git worktrees whose node_modules share disk blocks through copy-on-write clones",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NikAtNight/lazarus.git"
+  },
+  "homepage": "https://github.com/NikAtNight/lazarus#readme",
+  "bugs": {
+    "url": "https://github.com/NikAtNight/lazarus/issues"
+  },
   "type": "module",
   "bin": {
     "lazarus": "bin/lazarus.js"

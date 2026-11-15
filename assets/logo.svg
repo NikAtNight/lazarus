@@ -1,34 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="lazarus logo: two ghosts gliding forward together, on paper">
   <title>lazarus</title>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#17392b"/>
-      <stop offset="1" stop-color="#0b2018"/>
+      <stop offset="0" stop-color="#f3ecdf"/>
+      <stop offset="1" stop-color="#eadfcd"/>
     </linearGradient>
-    <!-- cuts a clean gap where the main canopy overlaps the two copies -->
-    <mask id="gap">
-      <rect width="512" height="512" fill="#fff"/>
-      <circle cx="256" cy="172" r="86" fill="#000"/>
-    </mask>
   </defs>
-
   <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-
-  <!-- trunks: a main line with two branches forking off it, git-graph style -->
-  <g fill="none" stroke="#e9f3ec" stroke-width="22" stroke-linecap="round">
-    <path d="M256 392 V 236"/>
-    <path d="M256 372 C 256 328, 152 340, 152 292"/>
-    <path d="M256 330 C 256 290, 360 302, 360 260"/>
+  <g transform="translate(230 188) rotate(12) scale(0.9964)">
+    <path d="M88 0 C88 60 98 110 104 150 C108 178 84 194 62 176 C48 164 34 162 22 176 C8 192 -16 200 -36 186 C-60 202 -100 218 -142 210 C-108 194 -92 160 -90 118 C-89 80 -88 40 -88 0 C-88 -49 -49 -88 0 -88 C49 -88 88 -49 88 0 Z" fill="#e8835a"/>
+    <rect x="-11.0" y="-24" width="30" height="46" rx="15.0" fill="#342d38"/><rect x="37.0" y="-24" width="30" height="46" rx="15.0" fill="#342d38"/>
   </g>
-
-  <!-- canopies: two worktrees, each a copy of the main tree -->
-  <g mask="url(#gap)" fill="#56c285">
-    <circle cx="152" cy="252" r="58"/>
-    <circle cx="360" cy="226" r="58"/>
+  <path d="M88 0 C88 60 98 110 104 150 C108 178 84 194 62 176 C48 164 34 162 22 176 C8 192 -16 200 -36 186 C-60 202 -100 218 -142 210 C-108 194 -92 160 -90 118 C-89 80 -88 40 -88 0 C-88 -49 -49 -88 0 -88 C49 -88 88 -49 88 0 Z" transform="translate(342 236) rotate(12) scale(1.06)" fill="#342d38"/>
+  <g transform="translate(342 236) rotate(12) scale(1.06)">
+    <rect x="-11.0" y="-24" width="30" height="46" rx="15.0" fill="#fff5e7"/><rect x="37.0" y="-24" width="30" height="46" rx="15.0" fill="#fff5e7"/>
   </g>
-  <circle cx="256" cy="172" r="74" fill="#8fe7af"/>
-
-  <!-- root commit: the main checkout -->
-  <circle cx="256" cy="416" r="26" fill="#e9f3ec"/>
-  <circle cx="256" cy="416" r="11" fill="#0d241b"/>
 </svg>
