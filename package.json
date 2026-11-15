@@ -1,0 +1,31 @@
+{
+  "name": "copse",
+  "version": "0.1.0",
+  "description": "Git worktrees whose node_modules share disk blocks through copy-on-write clones",
+  "type": "module",
+  "bin": {
+    "copse": "bin/copse.js"
+  },
+  "files": [
+    "bin",
+    "lib"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "keywords": [
+    "git",
+    "worktree",
+    "node_modules",
+    "clonefile",
+    "copy-on-write"
+  ],
+  "license": "MIT"
+}
