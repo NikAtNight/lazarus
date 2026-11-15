@@ -23,3 +23,46 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: npm test
+
+  # Real copy-on-write on Linux: run on a Btrfs and an XFS disk image.
+  cow:
+    strategy:
+      fail-fast: false
+      matrix:
+        fs: [btrfs, xfs]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Mount a ${{ matrix.fs }} disk
+        run: |
+          set -eu
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq btrfs-progs xfsprogs
+          truncate -s 2G /tmp/disk.img
+          if [ "${{ matrix.fs }}" = btrfs ]; then mkfs.btrfs -q /tmp/disk.img; else mkfs.xfs -q -m reflink=1 /tmp/disk.img; fi
+          sudo mkdir /mnt/cow
+          sudo mount -o loop /tmp/disk.img /mnt/cow
+          sudo chown "$USER" /mnt/cow
+          df -T /mnt/cow
+      - name: Test suite on the disk
+        run: TMPDIR=/mnt/cow npm test
+      - name: A worktree shares blocks with the main checkout
+        run: |
+          set -eu
+          mkdir /mnt/cow/app && cd /mnt/cow/app
+          git init -q -b main
+          printf 'node_modules\n' > .gitignore
+          echo '{"name":"app"}' > package.json
+          git add . && git -c user.name=ci -c user.email=ci@example.com commit -qm init
+          mkdir node_modules && head -c 100M /dev/urandom > node_modules/big.bin
+          sync; before=$(df --output=used -k /mnt/cow | tail -1)
+          node "$GITHUB_WORKSPACE/bin/copse.js" add feat --no-install | tee /tmp/add.log
+          grep -q '^clone   node_modules' /tmp/add.log
+          sync; after=$(df --output=used -k /mnt/cow | tail -1)
+          echo "disk used: $(( (after - before) / 1024 )) MB for a 100 MB node_modules"
+          test $(( after - before )) -lt 10240
+          echo x >> ../app-feat/node_modules/big.bin
+          ! cmp -s node_modules/big.bin ../app-feat/node_modules/big.bin
