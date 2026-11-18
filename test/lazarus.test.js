@@ -122,6 +122,23 @@ test('add creates a worktree with its own runnable copy of dependencies and env 
   assert.equal(readFileSync(join(repo, 'node_modules/pkg/cli.js'), 'utf8'), 'original');
 });
 
+test('tool caches are never read: one lazarus cannot open does not stop add', (t) => {
+  const { repo } = makeRepo(t);
+  put(repo, 'node_modules/.cache/webpack/pack.gz', 'cache');
+  chmodSync(join(repo, 'node_modules/.cache/webpack'), 0o000);
+  let dest;
+  try {
+    dest = add(repo, 'feature', { install: false });
+  } finally {
+    chmodSync(join(repo, 'node_modules/.cache/webpack'), 0o755);
+  }
+
+  assert.equal(readFileSync(join(dest, 'node_modules/pkg/cli.js'), 'utf8'), 'original');
+  assert.equal(readlinkSync(join(dest, 'node_modules/.bin/pkg')), '../pkg/cli.js');
+  assert.equal(existsSync(join(dest, 'node_modules/.cache')), false);
+  assert.equal(existsSync(join(repo, 'node_modules/.vite/deps/dep.js')), true, "main's cache is untouched");
+});
+
 test('the lazarus command names the folder safely for a branch with a slash', (t) => {
   const { root, repo } = makeRepo(t);
 
@@ -143,6 +160,17 @@ test('add checks out an existing branch and rejects --base for it', (t) => {
   const dest = add(repo, 'existing', { install: false });
 
   assert.equal(git(dest, 'rev-parse', 'HEAD'), first);
+});
+
+test('a new branch based on a remote branch does not track it', (t) => {
+  const { repo } = makeRepo(t);
+  git(repo, 'remote', 'add', 'origin', repo);
+  git(repo, 'fetch', '-q', 'origin');
+
+  const dest = add(repo, 'feature', { base: 'origin/main', install: false });
+
+  assert.equal(git(dest, 'rev-parse', 'HEAD'), git(repo, 'rev-parse', 'origin/main'));
+  assert.equal(git(repo, 'for-each-ref', '--format=%(upstream)', 'refs/heads/feature'), '');
 });
 
 test('add skips a nested node_modules when the branch has no folder for it', (t) => {

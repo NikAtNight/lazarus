@@ -8,7 +8,7 @@ On macOS, each folder is cloned with one `clonefileat(2)` call, made through the
 
 pnpm writes the checkout's absolute path into its `.bin` shims. lazarus rewrites the cloned shims to the worktree's path, so a missing package can't resolve from the main checkout.
 
-Tool caches at `node_modules/.vite` and `node_modules/.cache` stay behind. Vite's cache holds absolute imports from the main checkout, and both rebuild on first use.
+Tool caches at `node_modules/.vite` and `node_modules/.cache` stay behind. Vite's cache holds absolute imports from the main checkout, and both rebuild on first use. lazarus never reads them, so a large webpack cache doesn't slow it down: a `node_modules` that has one is cloned entry by entry, leaving the cache out.
 
 It never overwrites a file or folder the worktree already has. It skips a nested `node_modules` when the branch has no parent folder for it.
 
